@@ -64,7 +64,7 @@
     "typescript": "^3.1.3",
     "webpack": "^4.20.2",
     "webpack-format-messages": "^2.0.3",
-    "yootils": "0.0.14"
+    "yootils": "bwbroersma/yootils#gh-3"
   },
   "scripts": {
     "test": "mocha --opts mocha.opts",

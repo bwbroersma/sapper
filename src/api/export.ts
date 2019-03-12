@@ -17,6 +17,7 @@ type Opts = {
 	static?: string,
 	basepath?: string,
 	timeout?: number | false,
+	concurrent?: number,
 	oninfo?: ({ message }: { message: string }) => void;
 	onfile?: ({ file, size, status }: { file: string, size: number, status: number }) => void;
 };
@@ -36,6 +37,7 @@ async function _export({
 	export_dir = '__sapper__/export',
 	basepath = '',
 	timeout = 5000,
+	concurrent = 8,
 	oninfo = noop,
 	onfile = noop
 }: Opts = {}) {
@@ -84,6 +86,7 @@ async function _export({
 
 	const seen = new Set();
 	const saved = new Set();
+	const q = yootils.queue(concurrent);
 
 	function save(path: string, status: number, type: string, body: string) {
 		const { pathname } = resolve(origin, path);
@@ -147,9 +150,6 @@ async function _export({
 			if (type === 'text/html' && pathname !== '/service-worker-index.html') {
 				const cleaned = clean_html(body);
 
-				const q = yootils.queue(8);
-				let promise;
-
 				const base_match = /<base ([\s\S]+?)>/m.exec(cleaned);
 				const base_href = base_match && get_href(base_match[1]);
 				const base = resolve(url.href, base_href);
@@ -165,12 +165,10 @@ async function _export({
 						const url = resolve(base.href, href);
 
 						if (url.protocol === protocol && url.host === host) {
-							promise = q.add(() => handle(url));
+							q.add(() => handle(url));
 						}
 					}
 				}
-
-				await promise;
 			}
 		}
 
@@ -188,6 +186,7 @@ async function _export({
 
 	return ports.wait(port)
 		.then(() => handle(root))
+		.then(() => q.close())
 		.then(() => handle(resolve(root.href, 'service-worker-index.html')))
 		.then(() => proc.kill())
 		.catch(err => {
